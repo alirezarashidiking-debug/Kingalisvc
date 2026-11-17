@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VEXO ????????</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body data-protected="true">
+  <header class="top">
+    <nav class="wrap nav">
+      <a class="brand" href="index.html">V<b>EXO</b></a>
+      <button id="logout" class="btn">????</button>
+    </nav>
+  </header>
+
+  <main class="wrap section">
+    <div class="eyebrow">?? VEXO LEVELS</div>
+    <h1>??? <span class="grad">???</span></h1>
+
+    <section class="card">
+      <div class="stat" id="levelDisplay">1</div>
+      <p class="muted">XP: <span id="xpDisplay">0</span> / <span id="xpNeeded">100</span></p>
+      <div style="background:#222;border-radius:99px;height:10px;overflow:hidden;margin:10px 0;">
+        <div id="xpBar" style="background:linear-gradient(90deg,#ff9bd5,#ff4cac);height:100%;width:0%;transition:width 0.3s;"></div>
+      </div>
+      <p class="muted">??? ???? ??????: <strong id="dailyCap">35</strong> ????</p>
+    </section>
+
+    <section class="card section">
+      <h2>?????? ??????</h2>
+      <ul class="muted">
+        <li>?? ??? = +? ???? ?? ??? ???? ??????</li>
+        <li>??? ? = ?????? ?? ??? ????? ?? ?% ?????</li>
+        <li>??? ?? = ?????? ?? ??? ???????? ?? ??% ?????</li>
+      </ul>
+    </section>
+  </main>
+
+  
+
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/levels.js"></script>
+<nav class="floating-nav" aria-label="Main navigation"><a href="dashboard.html"><b>⌂</b><span>Home</span></a><a href="game.html"><b>⚔</b><span>Arena</span></a><a href="leaderboard.html"><b>🏆</b><span>Ranks</span></a><a href="missions.html"><b>✦</b><span>Missions</span></a><a href="referrals.html"><b>♧</b><span>Invite</span></a><a href="profile.html"><b>◉</b><span>Profile</span></a></nav>
+</body>
+</html>

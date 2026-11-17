@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VEXO Plans</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/dashboard.css">
+  <style>
+    .plan-hydrogen{border-color:#8884}.plan-helium{border-color:#4af4;background:linear-gradient(145deg,#0a1a2e,#102a4a)}
+    .plan-uranium{border-color:#fa44;background:linear-gradient(145deg,#2a1a0a,#4a2a10)}
+  </style>
+</head>
+<body data-protected="true">
+  <header class="top"><nav class="wrap nav"><a class="brand" href="index.html">V<b>EXO</b></a><a class="btn" href="dashboard.html">Dashboard</a><div style="display:flex;align-items:center;gap:8px"><a class="btn" href="notifications.html" aria-label="Notifications">🔔</a><a class="btn" href="support.html" aria-label="Support">?</a><button id="logout" class="btn">Sign out</button></div></nav></header>
+  <main class="wrap section">
+    <div class="eyebrow">VEXO MEMBERSHIPS</div>
+    <h1>Choose your <span class="grad">plan</span></h1>
+    <div id="ton-connect-plans" style="margin:18px 0;"></div><p class="muted">Membership checkout uses TON Mainnet. Real funds are at risk; checkout remains locked until launch approval.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+      <article class="card plan-hydrogen"><span class="pill">HYDROGEN</span><h2>Hydrogen</h2><p class="muted">Up to 250 games per day</p><strong class="stat">$20 reference price</strong><button class="btn primary" data-plan="hydrogen">Create Mainnet order</button></article>
+      <article class="card plan-helium"><span class="pill">HELIUM</span><h2>Helium</h2><p class="muted">Up to 500 games per day</p><strong class="stat">$40 reference price</strong><button class="btn primary" data-plan="helium">Create Mainnet order</button></article>
+      <article class="card plan-uranium"><span class="pill">URANIUM</span><h2>Uranium</h2><p class="muted">Unlimited games while active</p><strong class="stat">$100 reference price</strong><button class="btn primary" data-plan="uranium">Create Mainnet order</button></article>
+    </div>
+    <p id="planMessage" class="notice" aria-live="polite">Create an order to begin. Payments stay locked until Mainnet pricing and secrets are configured.</p>
+    <button id="verifyPlanPayment" class="btn primary" hidden>Verify Mainnet payment</button>
+    <p class="fine">No mainnet checkout, cash redemption, or real-money value is enabled by this page. Never share a wallet recovery phrase or private key.</p>
+  </main>
+  
+  <script src="https://unpkg.com/@tonconnect/ui@2.3.3/dist/tonconnect-ui.min.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/plans.js"></script>
+<nav class="floating-nav" aria-label="Main navigation"><a href="dashboard.html"><b>⌂</b><span>Home</span></a><a href="game.html"><b>⚔</b><span>Arena</span></a><a href="leaderboard.html"><b>🏆</b><span>Ranks</span></a><a href="missions.html"><b>✦</b><span>Missions</span></a><a href="referrals.html"><b>♧</b><span>Invite</span></a><a href="profile.html"><b>◉</b><span>Profile</span></a></nav>
+</body>
+</html>

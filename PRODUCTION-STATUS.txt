@@ -1,0 +1,42 @@
+VEXO RELEASE READINESS — BUILD REVIEW
+Build: VEXO-PLAYER-ID-10DIGIT (reviewed 2026-11-17)
+
+IMPLEMENTED IN THIS BUILD
+1. Server-generated 10-digit Player ID allocation using crypto.randomInt.
+2. Atomic reservation in playerIdIndex; IDs are stored as strings and checked for conflicts.
+3. Profile page displays the ID and supports copy.
+4. GOD player lookup uses the 10-digit ID and returns account, wallet, stats, transactions, matches and ban status.
+5. GOD wallet adjustments require an audit reason and use server-side wallet updates.
+6. Account restrictions are server-controlled and audited.
+7. Daily Gold cap is hard-limited to 100 in the callable and admin UI.
+8. Wallet change inputs reject non-finite, excessive and over-precision values.
+9. Bot match statistics are recorded through the shared recordMatchOnce helper; this prevents duplicate stat increments when the same match key is processed again, but request-level retry idempotency still needs testing and a stable client request key.
+10. Withdrawal requests have a server-side per-user cooldown.
+11. Support ticket creation has a server-side per-user cooldown.
+12. GOD player search and wallet adjustments have server-side cooldowns.
+
+NOT YET VERIFIED / REQUIRES FIREBASE DEPLOYMENT AND TESTING
+- Firebase Authentication Email/Google sign-in on the actual GitHub Pages domain.
+- Real RTDB transactions and security rules against the live vexo-v2 project.
+- Concurrent sign-ups to prove ID uniqueness under live load.
+- Bot/multiplayer end-to-end play, settlement recovery and retry behavior.
+- Mission/referral rewards under concurrent claims.
+- GOD Custom Claims provisioning and least-privilege review.
+- TON Mainnet order verification, actual treasury configuration, and real withdrawals.
+- Load testing, emulator tests, abuse testing, backup/restore drill.
+- Any payment or withdrawal involving real value requires legal, treasury and security review.
+
+IMPORTANT SECURITY
+- Never put a TON wallet seed phrase, private key, Firebase Admin service account, or signing secret in this repository or browser code.
+- The public Firebase web apiKey is not an Admin credential, but Firebase Security Rules and App Check must still be correctly configured.
+- TON Connect does not custody user keys and does not itself provide a secure automated payout signer.
+- This build has NOT been deployed to Firebase and is NOT certified production-ready.
+
+
+FIREBASE CONNECTION PATCH (2026-11-17)
+- Removed root-level .read=false and .write=false because RTDB rules cascade;
+  child-specific authenticated read rules now apply while unspecified paths
+  remain denied by default.
+- Set the Admin SDK Realtime Database URL explicitly to the vexo-v2 default RTDB.
+- Added GitHub Actions secret and Authorized Domain deployment notes to README.
+- Still requires deployment and live verification in the owner's Firebase/GitHub.
