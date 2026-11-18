@@ -1,0 +1,70 @@
+name: Deploy VEXO Firebase backend
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'functions/**'
+      - 'firebase-database.rules.json'
+      - 'firebase.json'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI and function dependencies
+        run: |
+          npm install -g firebase-tools@15.22.1
+          cd functions
+          npm install
+
+      - name: Create functions environment file
+        env:
+          VEXO_MAINNET_PAYMENTS_ENABLED: ${{ secrets.VEXO_MAINNET_PAYMENTS_ENABLED }}
+          VEXO_TON_NETWORK: ${{ secrets.VEXO_TON_NETWORK }}
+          VEXO_TON_TREASURY: ${{ secrets.VEXO_TON_TREASURY }}
+          VEXO_PACKAGE_STARTER_NANO: ${{ secrets.VEXO_PACKAGE_STARTER_NANO }}
+          VEXO_PACKAGE_BOOST_NANO: ${{ secrets.VEXO_PACKAGE_BOOST_NANO }}
+          VEXO_PACKAGE_VAULT_NANO: ${{ secrets.VEXO_PACKAGE_VAULT_NANO }}
+          VEXO_PLAN_HYDROGEN_NANO: ${{ secrets.VEXO_PLAN_HYDROGEN_NANO }}
+          VEXO_PLAN_HELIUM_NANO: ${{ secrets.VEXO_PLAN_HELIUM_NANO }}
+          VEXO_PLAN_URANIUM_NANO: ${{ secrets.VEXO_PLAN_URANIUM_NANO }}
+        run: |
+          {
+            echo "VEXO_MAINNET_PAYMENTS_ENABLED=${VEXO_MAINNET_PAYMENTS_ENABLED:-false}"
+            echo "VEXO_TON_NETWORK=${VEXO_TON_NETWORK:-mainnet}"
+            echo "VEXO_TON_TREASURY=${VEXO_TON_TREASURY:-}"
+            echo "VEXO_PACKAGE_STARTER_NANO=${VEXO_PACKAGE_STARTER_NANO:-}"
+            echo "VEXO_PACKAGE_BOOST_NANO=${VEXO_PACKAGE_BOOST_NANO:-}"
+            echo "VEXO_PACKAGE_VAULT_NANO=${VEXO_PACKAGE_VAULT_NANO:-}"
+            echo "VEXO_PLAN_HYDROGEN_NANO=${VEXO_PLAN_HYDROGEN_NANO:-}"
+            echo "VEXO_PLAN_HELIUM_NANO=${VEXO_PLAN_HELIUM_NANO:-}"
+            echo "VEXO_PLAN_URANIUM_NANO=${VEXO_PLAN_URANIUM_NANO:-}"
+          } > functions/.env
+
+      - name: Create Firebase service account file
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          test -n "$FIREBASE_SERVICE_ACCOUNT" || (echo 'Missing FIREBASE_SERVICE_ACCOUNT secret' && exit 1)
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > service-account.json
+
+      - name: Deploy Firebase Functions and database rules
+        run: firebase deploy --only functions,database --project vexo-v2 --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/service-account.json
