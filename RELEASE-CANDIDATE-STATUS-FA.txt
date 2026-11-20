@@ -1,0 +1,18 @@
+VEXO RELEASE CANDIDATE — STATUS
+
+This package is a release candidate for controlled Firebase testing, not a production launch or a guarantee that every feature is fully operational.
+
+Changes in this candidate:
+- Bot match calls now require a requestId.
+- Daily game state stores each request outcome, allowing the same request ID to reuse its original result and not consume another daily round.
+- Wallet operations for bot matches use a durable operation key to avoid applying the same wallet delta twice.
+- Player XP/level updates use a transaction and a request deduplication map.
+- Bot match history keys are deterministic from day + requestId.
+- Browser bot-game calls send requestId.
+
+Validation:
+- Node syntax check passed for functions/index.js and js/game.js.
+- Payment matcher tests were not completed because @ton/core was unavailable; npm install timed out.
+- No live Firebase emulator, live database, TON payment, withdrawal, or multiplayer concurrency test was performed.
+- No live TON payouts are enabled by this code; withdrawal requests are review/reservation only.
+- Before real users: review database rules, admin claims, mainnet order verification, settlement maps growth, multiplayer room lifecycle and reconciliation, and all money paths.

@@ -25,7 +25,8 @@ async function botMove(move) {
   if (botBusy) return;
   setBotBusy(true);
   try {
-    const result = (await call('playBotMatch')({ move })).data;
+    const requestId = (globalThis.crypto?.randomUUID?.() || `m${Date.now()}_${Math.random().toString(36).slice(2,12)}`).replace(/[^A-Za-z0-9_-]/g,'').slice(0,64);
+    const result = (await call('playBotMatch')({ move, requestId })).data;
     $('you').textContent = icons[move];
     $('bot').textContent = icons[result.opponentMove];
     let text = result.result.toUpperCase();

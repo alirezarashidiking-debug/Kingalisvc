@@ -1,0 +1,23 @@
+VEXO — QUICK DEPLOY (Firebase Functions + GitHub Pages)
+
+
+1) Upload this whole folder to your GitHub repository (do not upload node_modules).
+2) In Firebase Console, open project vexo-v2 and confirm Authentication and Realtime Database are configured.
+3) On a trusted computer with Node.js 20+ installed, install Firebase CLI:
+   npm install -g firebase-tools
+4) Open terminal in the VEXO project folder and run:
+   firebase login
+   firebase use vexo-v2
+   cd functions
+   npm install
+   cd ..
+   firebase deploy --only database,functions
+5) Wait for deploy to finish. Check Firebase Functions logs and test with a non-production account.
+6) GitHub Pages: Settings > Pages > Deploy from branch > main > /(root), then Save.
+
+IMPORTANT:
+- This folder is not safe to treat as a real-money production release.
+- Do not add Firebase service-account JSON, private keys, seed phrases, or .env files to GitHub.
+- Mainnet payment activation must remain OFF until security, payment verification, pricing, legal, and operational checks are completed.
+- The included withdrawal flow reserves balance and creates a review request; it does not send TON automatically.
+- If deploy errors occur, stop and copy the error text. Do not repeatedly deploy blindly.

@@ -6,7 +6,7 @@ const {defineSecret} = require('firebase-functions/params');
 const crypto = require('crypto');
 const { Address } = require('@ton/core');
 
-initializeApp({ databaseURL: 'https://vexo-v2-default-rtdb.firebaseio.com' });
+initializeApp();
 const db = getDatabase();
 const REGION = 'us-central1';
 const TONCENTER_MAINNET_API_KEY = defineSecret('TONCENTER_MAINNET_API_KEY');
@@ -120,16 +120,17 @@ async function assertNotBanned(uid){
   if(s.exists()&&s.val()?.banned)throw new HttpsError('permission-denied','This account is restricted. Contact VEXO support.');
 }
 
-async function walletChange(uid,delta,meta){
+async function walletChange(uid,delta,meta,operationId=null){
   for(const key of ['gold','silver','bronze','vxb']){
     const value=Number(delta?.[key]??0);
     if(!Number.isFinite(value)||Math.abs(value)>1000000000||Math.round(value*10000)!==value*10000)
       throw new HttpsError('invalid-argument','Wallet changes must be finite values with at most 4 decimal places.');
   }
   const wref=db.ref(`wallets/${uid}`);
-  let after;
+  let after,applied=false;
   const tx=await wref.transaction(w=>{
     w=w||{gold:0,silver:0,bronze:0,vxb:0};
+    if(operationId){w._walletOperations=w._walletOperations||{};if(w._walletOperations[operationId]){after={...w};return w;}}
     for(const k of ['gold','silver','bronze','vxb']){
       const next=(Number(w[k])||0)+(Number(delta[k])||0);
       if(next<0){
@@ -137,12 +138,14 @@ async function walletChange(uid,delta,meta){
         else return;
       }else w[k]=next;
     }
+    if(operationId){w._walletOperations=w._walletOperations||{};w._walletOperations[operationId]=true;}
+    applied=true;
     w.updatedAt=ServerValue.TIMESTAMP;
     after={...w};
     return w;
   });
   if(!tx.committed)throw new HttpsError('failed-precondition','Insufficient balance or wallet conflict.');
-  await db.ref(`transactions/${uid}`).push({...meta,delta,balances:after,createdAt:ServerValue.TIMESTAMP});
+  if(applied) await db.ref(`transactions/${uid}`).push({...meta,delta,balances:after,createdAt:ServerValue.TIMESTAMP});
   return after;
 }
 
@@ -176,8 +179,7 @@ async function settleWalletOnce(uid,key,amount,meta){
     const next=(Number(w.vxb)||0)+amount;
     w.vxb=Math.max(0,next);
     w._settled[key]=true;
-    const keys=Object.keys(w._settled);
-    if(keys.length>300)delete w._settled[keys[0]];
+    // Keep settlement keys durable: pruning allows an old match key to be replayed.
     w.updatedAt=ServerValue.TIMESTAMP;
     after=w;
     applied=true;
@@ -327,10 +329,12 @@ exports.updatePlayerProfile = onCall({region:REGION},async req=>{
 exports.playBotMatch = onCall({region:REGION,maxInstances:30},async req=>{
   const uid=needAuth(req);await assertNotBanned(uid);await enforceRateLimit(uid,'bot-match',650);
   if(!MOVES.includes(req.data?.move))throw new HttpsError('invalid-argument','Invalid move.');
+  const requestId=clean(req.data?.requestId,64);
+  if(!/^[A-Za-z0-9_-]{16,64}$/.test(requestId))throw new HttpsError('invalid-argument','A valid match request ID is required.');
   const p=await getProfile(uid,req.auth.token);
-  const bot=MOVES[crypto.randomInt(0,3)],result=outcome(req.data.move,bot),day=dayKey();
+  let bot=MOVES[crypto.randomInt(0,3)],result=outcome(req.data.move,bot),day=dayKey();
   const statsRef=db.ref(`gameState/${uid}/${day}`);
-  let goldAward=0;
+  let goldAward=0,matchRecord=null;
   
   const [subSnap,levelSnap,economySnap]=await Promise.all([
     db.ref(`subscriptions/${uid}`).get(),
@@ -352,42 +356,41 @@ exports.playBotMatch = onCall({region:REGION,maxInstances:30},async req=>{
   
   const dailyGoldCap=Math.max(0,Math.min(DAY_CAP,Number(economySnap.val()??DAY_CAP)));
   const tx=await statsRef.transaction(st=>{
-    st=st||{goldEarned:0,rounds:0};
+    st=st||{goldEarned:0,rounds:0,requests:{}};st.requests=st.requests||{};
+    if(st.requests[requestId]){matchRecord=st.requests[requestId];bot=matchRecord.opponentMove;result=matchRecord.result;goldAward=Number(matchRecord.goldAward)||0;return st;}
     if((st.rounds||0)>=quota)return;
     st.rounds=(Number(st.rounds)||0)+1;
     const earned=Math.max(0,Number(st.goldEarned)||0);
     goldAward=result==='win'&&earned<dailyGoldCap?Math.min(1,dailyGoldCap-earned):0;
     st.goldEarned=earned+goldAward;
+    matchRecord={requestId,move:req.data.move,opponentMove:bot,result,goldAward,createdAt:Date.now()};
+    st.requests[requestId]=matchRecord;
     return st;
   });
   if(!tx.committed)throw new HttpsError('resource-exhausted','Daily game limit reached. Try again tomorrow or review your plan.');
+  if(!matchRecord){matchRecord=tx.snapshot.val()?.requests?.[requestId];if(matchRecord){bot=matchRecord.opponentMove;result=matchRecord.result;goldAward=Number(matchRecord.goldAward)||0;}}
   
   // ????? VEXO: ??? = +?? ???? = -?.??
   let delta={gold:0,silver:0,bronze:0,vxb:0};
   if(result==='win')delta.gold=goldAward;
   if(result==='loss')delta.gold=-0.25;
   
-  const wallet=await walletChange(uid,delta,{type:'bot-match',result,move:req.data.move,opponentMove:bot});
+  const wallet=await walletChange(uid,delta,{type:'bot-match',requestId,result,move:req.data.move,opponentMove:bot},`bot-${day}-${requestId}`);
   
-  // XP: ?? ???? ?? XP + ????? ??? ? XP
+  // XP updates are deduplicated by the same client request ID.
   const xpGained=result==='win'?15:10;
-  const newXp=(levelData.xp||0)+xpGained;
-  let newLevel=level;
-  let xpNeeded=100+(level-1)*50;
-  let remainingXp=newXp;
-  
-  while(remainingXp>=xpNeeded){
-    remainingXp-=xpNeeded;
-    newLevel++;
-    xpNeeded=100+(newLevel-1)*50;
-  }
-  
-  await db.ref(`playerLevels/${uid}`).set({
-    level:newLevel,xp:remainingXp,updatedAt:ServerValue.TIMESTAMP
+  const levelRef=db.ref(`playerLevels/${uid}`);let levelAfter;
+  const levelTx=await levelRef.transaction(current=>{
+    current=current||{level:1,xp:0};current._processedBotRequests=current._processedBotRequests||{};
+    if(current._processedBotRequests[requestId]){levelAfter=current;return current;}
+    const xp=(Number(current.xp)||0)+xpGained;let lvl=Math.max(1,Number(current.level)||1),rem=xp,need=100+(lvl-1)*50;
+    while(rem>=need){rem-=need;lvl++;need=100+(lvl-1)*50;}
+    current.level=lvl;current.xp=rem;current._processedBotRequests[requestId]=true;current.updatedAt=ServerValue.TIMESTAMP;levelAfter=current;return current;
   });
-  
-  const matchRef=db.ref(`matches/${uid}`).push();
-  const matchKey=matchRef.key;
+  if(!levelTx.committed)throw new HttpsError('aborted','Could not update progression. Retry.');
+  let newLevel=Number(levelAfter.level)||level,remainingXp=Number(levelAfter.xp)||0;
+  // Level transaction above is the durable source of truth; no overwrite race here.
+  const matchKey=`bot-${day}-${requestId}`;
   await recordMatchOnce(uid,matchKey,{
     mode:'bot',move:req.data.move,opponentMove:bot,result,xpGained,createdAt:Date.now()
   });
@@ -661,8 +664,31 @@ function paymentPackages() {
 
 function rawTonAddress(value) {
   try { return Address.parse(String(value)).toRawString(); }
-  catch (_) { throw new HttpsError('failed-precondition', 'A configured or returned TON address is invalid.'); }
+  catch (_) { throw new HttpsError('failed-precondition', 'A configured TON address is invalid.'); }
 }
+
+
+// Invalid external transaction records are skipped instead of aborting the whole scan.
+function safeRawTonAddress(value) {
+  try { return Address.parse(String(value)).toRawString(); }
+  catch (_) { return null; }
+}
+
+
+function isMatchingMainnetPayment(tx, order, receiverRaw, createdSeconds, expiresSeconds) {
+  if (!tx || typeof tx !== 'object') return false;
+  const msg = tx.in_msg || {};
+  const destinationRaw = safeRawTonAddress(msg.destination);
+  if (!destinationRaw || destinationRaw !== receiverRaw) return false;
+  const text = String(msg.message || msg.msg_data?.text || '');
+  const time = Number(tx.utime || 0);
+  const successful = tx.description?.aborted !== true && tx.description?.compute_ph?.success !== false;
+  return successful &&
+    String(msg.value) === String(order.amountNano) &&
+    text.includes(String(order.memo || '')) &&
+    time >= createdSeconds && time <= expiresSeconds;
+}
+
 
 async function findMainnetPayment(order, receiver, apiKey) {
   const url = `https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(receiver)}&limit=100&archival=true`;
@@ -673,18 +699,8 @@ async function findMainnetPayment(order, receiver, apiKey) {
 
   const createdSeconds = Math.floor(Number(order.createdAt || 0) / 1000);
   const expiresSeconds = Math.floor(Number(order.expiresAt || 0) / 1000);
-  const match = data.result.find(tx => {
-    const msg = tx.in_msg || {};
-    const text = String(msg.message || msg.msg_data?.text || '');
-    const time = Number(tx.utime || 0);
-    const successful = tx.description?.aborted !== true && tx.description?.compute_ph?.success !== false;
-    return successful &&
-      rawTonAddress(msg.destination) === rawTonAddress(receiver) &&
-      String(msg.value) === String(order.amountNano) &&
-      text.includes(order.memo) &&
-      time >= createdSeconds &&
-      time <= expiresSeconds;
-  });
+  const receiverRaw = rawTonAddress(receiver);
+  const match = data.result.find(tx => isMatchingMainnetPayment(tx, order, receiverRaw, createdSeconds, expiresSeconds));
   if (!match) return null;
   const txHash = match.transaction_id?.hash || '';
   if (!/^[A-Za-z0-9_+=/-]{20,160}$/.test(String(txHash))) {

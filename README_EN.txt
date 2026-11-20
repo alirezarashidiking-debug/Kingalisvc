@@ -21,8 +21,7 @@ js/firebase-config.js
   an Admin SDK secret. Keep Firebase Security Rules restrictive.
 
 tonconnect-manifest.json
-  GitHub Pages URL configured for this package: https://alirezarashidiking-debug.github.io/Kingalisvc/
-If the repository or GitHub username changes again, update url and iconUrl.
+  Set url and iconUrl to the final public HTTPS GitHub Pages URL.
 
 functions/.env.example
   Copy the values into your private deployment environment. Replace every
@@ -95,24 +94,7 @@ Admin authentication is configured:
 The owner must sign out and sign in again so the custom claim refreshes.
 Protect the Google account with strong MFA. Keep a second recovery admin process.
 
-
-7) GITHUB ACTIONS BACKEND DEPLOYMENT
------------------------------------
-The included workflow deploys Cloud Functions and Realtime Database rules
-when relevant files are pushed to the main branch. It expects a GitHub Actions
-repository secret named FIREBASE_SERVICE_ACCOUNT containing the full JSON key
-for a service account authorized to deploy this Firebase project. Never paste
-that JSON into source files, issues, or chat. The workflow keeps
-VEXO_MAINNET_PAYMENTS_ENABLED=false unless explicitly changed in GitHub secrets.
-
-8) AUTHORIZED DOMAIN
---------------------
-For the current GitHub Pages URL in tonconnect-manifest.json, add this host
-under Firebase Authentication > Settings > Authorized domains:
-  alirezarashidiking-debug.github.io
-Keep the default Firebase domains. Do not include https:// or a path.
-
-9) JETTON CONTRACT
+7) JETTON CONTRACT
 ------------------
 This repository does not contain a deployed Jetton Master contract. Before
 mainnet launch you must finalize:
